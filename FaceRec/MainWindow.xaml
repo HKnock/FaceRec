@@ -5,11 +5,13 @@
     <Grid x:Name="BackPanel">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="0*"/>
-            <ColumnDefinition Width="71*"/>
-            <ColumnDefinition Width="889*"/>
+            <ColumnDefinition Width="31*"/>
+            <ColumnDefinition Width="40*"/>
+            <ColumnDefinition Width="44*"/>
+            <ColumnDefinition Width="845*"/>
         </Grid.ColumnDefinitions>
-        <Image x:Name="FacePhoto" Stretch="Uniform" Margin="0,0,0,50" MouseMove="FacePhoto_MouseMove" Grid.ColumnSpan="3" />
-        <DockPanel Grid.ColumnSpan="3">
+        <Image x:Name="FacePhoto" Stretch="Uniform" Margin="0,0,0,50" MouseMove="FacePhoto_MouseMove" Grid.ColumnSpan="5" />
+        <DockPanel Grid.ColumnSpan="5">
             <Button x:Name="CaptureButton" Width="72" Height="20" VerticalAlignment="Bottom" HorizontalAlignment="Left"
                      Content="Capture"
                      Click="CaptureButton_Click" />

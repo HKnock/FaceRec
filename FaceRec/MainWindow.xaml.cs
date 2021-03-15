@@ -31,6 +31,8 @@ namespace FaceRec
     /// </summary>
     public partial class MainWindow : Window
     {
+        private VideoCapture capture;
+        private string savePath = @"C:\Users\MooN\source\repos\FaceRec\FaceRec\image.jpg";
         public MainWindow()
         {
             InitializeComponent();
@@ -67,49 +69,58 @@ namespace FaceRec
         // Надпись по умолчанию для статус бара
         private const string defaultStatusBarText = "Place the mouse pointer over a face to see the face description.";
 
-        // Displays the image and calls UploadAndDetectFaces.
+        // Отображает изображение и вызывает метод UploadAndDetectFaces.
         private async void CaptureButton_Click(object sender, RoutedEventArgs e)
         {
-            // Get the image file to scan from the user.
-            var openDlg = new Microsoft.Win32.OpenFileDialog();
-
-            openDlg.Filter = "JPEG Image(*.jpg)|*.jpg";
-            bool? result = openDlg.ShowDialog(this);
-
-            // Return if canceled.
-            if (!(bool)result)
+            // Начало получение изображения с камеры.
+            if (capture == null)
             {
-                return;
+                try
+                {
+                    // Создание экземляра захвата изображения
+                    capture = new VideoCapture(0);
+                }
+                catch(NullReferenceException ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+            if(capture != null)
+            {
+                try
+                {
+                    Image<Bgr, double> capturedImage = capture.QueryFrame().ToImage<Bgr, double>();
+                    capturedImage.Save(@"C:\Users\MooN\source\repos\FaceRec\FaceRec\image.jpg");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
             }
 
-            // Display the image file.
-            string filePath = openDlg.FileName;
-
-            Uri fileUri = new Uri(filePath);
             BitmapImage bitmapSource = new BitmapImage();
 
             bitmapSource.BeginInit();
             bitmapSource.CacheOption = BitmapCacheOption.None;
-            bitmapSource.UriSource = fileUri;
+            bitmapSource.UriSource = new Uri(@"C:\Users\MooN\source\repos\FaceRec\FaceRec\image.jpg");
             bitmapSource.EndInit();
 
             FacePhoto.Source = bitmapSource;
 
-            // Detect any faces in the image.
+            // Обнаружение лиц на полученном изображении.
             Title = "Detecting...";
-            faceList = await UploadAndDetectFaces(filePath);
+            faceList = await UploadAndDetectFaces(savePath);
             Title = String.Format(
                 "Detection Finished. {0} face(s) detected", faceList.Count);
 
             if (faceList.Count > 0)
             {
-                // Prepare to draw rectangles around the faces.
+                // Подготовка отрисовки прямоугольников на изображении.
                 DrawingVisual visual = new DrawingVisual();
                 DrawingContext drawingContext = visual.RenderOpen();
                 drawingContext.DrawImage(bitmapSource,
                     new Rect(0, 0, bitmapSource.Width, bitmapSource.Height));
                 double dpi = bitmapSource.DpiX;
-                // Some images don't contain dpi info.
                 resizeFactor = (dpi == 0) ? 1 : 96 / dpi;
                 faceDescriptions = new String[faceList.Count];
 
@@ -117,7 +128,7 @@ namespace FaceRec
                 {
                     DetectedFace face = faceList[i];
 
-                    // Draw a rectangle on the face.
+                    // Отображение прямоугольников вокруг лица.
                     drawingContext.DrawRectangle(
                         Brushes.Transparent,
                         new Pen(Brushes.Red, 2),
@@ -129,13 +140,13 @@ namespace FaceRec
                             )
                     );
 
-                    // Store the face description.
+                    // Сохранение описаний лица.
                     faceDescriptions[i] = FaceDescription(face);
                 }
 
                 drawingContext.Close();
 
-                // Display the image with the rectangle around the face.
+                // Отображение изображения с нарисованным прямоугольником.
                 RenderTargetBitmap faceWithRectBitmap = new RenderTargetBitmap(
                     (int)(bitmapSource.PixelWidth * resizeFactor),
                     (int)(bitmapSource.PixelHeight * resizeFactor),
@@ -146,27 +157,26 @@ namespace FaceRec
                 faceWithRectBitmap.Render(visual);
                 FacePhoto.Source = faceWithRectBitmap;
 
-                // Set the status bar text.
+                // Установка текста в StatusBar.
                 faceDescriptionStatusBar.Text = defaultStatusBarText;
             }
         }
-        // Displays the face description when the mouse is over a face rectangle.
+        // Метод отображения информации о лице при наведении на прямоугольник.
         private void FacePhoto_MouseMove(object sender, MouseEventArgs e)
         {
-            // If the REST call has not completed, return.
             if (faceList == null)
                 return;
 
-            // Find the mouse position relative to the image.
+            // Получение координат мыши относительно изображения.
             Point mouseXY = e.GetPosition(FacePhoto);
 
             ImageSource imageSource = FacePhoto.Source;
             BitmapSource bitmapSource = (BitmapSource)imageSource;
 
-            // Scale adjustment between the actual size and displayed size.
+            // Регулировка масштаба с помощью resizeFactor.
             var scale = FacePhoto.ActualWidth / (bitmapSource.PixelWidth / resizeFactor);
 
-            // Check if this mouse position is over a face rectangle.
+            // Проверка, находится ли курсор над прямоугольником
             bool mouseOverFace = false;
 
             for (int i = 0; i < faceList.Count; ++i)
@@ -177,7 +187,7 @@ namespace FaceRec
                 double width = fr.Width * scale;
                 double height = fr.Height * scale;
 
-                // Display the face description if the mouse is over this face rectangle.
+                // Отображение описание если мышь находится над прямоугольником
                 if (mouseXY.X >= left && mouseXY.X <= left + width &&
                     mouseXY.Y >= top && mouseXY.Y <= top + height)
                 {
@@ -187,10 +197,10 @@ namespace FaceRec
                 }
             }
 
-            // String to display when the mouse is not over a face rectangle.
+            // Строка которая будет отображатся если мышь не находится над прямоугольником
             if (!mouseOverFace) faceDescriptionStatusBar.Text = defaultStatusBarText;
         }
-        // Uploads the image file and calls DetectWithStreamAsync.
+        // Загружает изображение и вызывает метод DetectWithStreamAsync.
         private async Task<IList<DetectedFace>> UploadAndDetectFaces(string imageFilePath)
         {
             // The list of Face attributes to return.
@@ -198,24 +208,21 @@ namespace FaceRec
                 new FaceAttributeType?[]
                 {
             FaceAttributeType.Gender, FaceAttributeType.Age,
-            FaceAttributeType.Smile, FaceAttributeType.Emotion,
-            FaceAttributeType.Glasses, FaceAttributeType.Hair
+            FaceAttributeType.Emotion
                 };
 
-            // Call the Face API.
+            // Вызов API определения лиц.
             try
             {
                 using (Stream imageFileStream = File.OpenRead(imageFilePath))
                 {
-                    // The second argument specifies to return the faceId, while
-                    // the third argument specifies not to return face landmarks.
                     IList<DetectedFace> faceList =
                         await faceClient.Face.DetectWithStreamAsync(
                             imageFileStream, true, false, faceAttributes);
                     return faceList;
                 }
             }
-            // Catch and display Face API errors.
+            // Поимка и отображение ошибок Face API.
             catch (APIErrorException f)
             {
                 MessageBox.Show(f.Message);
@@ -228,21 +235,20 @@ namespace FaceRec
                 return new List<DetectedFace>();
             }
         }
-        // Creates a string out of the attributes describing the face.
+        // Метод создания строки для отображения в statusBar`е.
         private string FaceDescription(DetectedFace face)
         {
             StringBuilder sb = new StringBuilder();
 
             sb.Append("Face: ");
 
-            // Add the gender, age, and smile.
+            // Добавление пола и количества лет.
             sb.Append(face.FaceAttributes.Gender);
             sb.Append(", ");
             sb.Append(face.FaceAttributes.Age);
             sb.Append(", ");
-            sb.Append(String.Format("smile {0:F1}%, ", face.FaceAttributes.Smile * 100));
 
-            // Add the emotions. Display all emotions over 10%.
+            // Добавление эмоций.
             sb.Append("Emotion: ");
             Emotion emotionScores = face.FaceAttributes.Emotion;
             if (emotionScores.Anger >= 0.1f) sb.Append(
@@ -262,29 +268,7 @@ namespace FaceRec
             if (emotionScores.Surprise >= 0.1f) sb.Append(
                 String.Format("surprise {0:F1}%, ", emotionScores.Surprise * 100));
 
-            // Add glasses.
-            sb.Append(face.FaceAttributes.Glasses);
-            sb.Append(", ");
-
-            // Add hair.
-            sb.Append("Hair: ");
-
-            // Display baldness confidence if over 1%.
-            if (face.FaceAttributes.Hair.Bald >= 0.01f)
-                sb.Append(String.Format("bald {0:F1}% ", face.FaceAttributes.Hair.Bald * 100));
-
-            // Display all hair color attributes over 10%.
-            IList<HairColor> hairColors = face.FaceAttributes.Hair.HairColor;
-            foreach (HairColor hairColor in hairColors)
-            {
-                if (hairColor.Confidence >= 0.1f)
-                {
-                    sb.Append(hairColor.Color.ToString());
-                    sb.Append(String.Format(" {0:F1}% ", hairColor.Confidence * 100));
-                }
-            }
-
-            // Return the built string.
+            // Возврат строки.
             return sb.ToString();
         }
     }
