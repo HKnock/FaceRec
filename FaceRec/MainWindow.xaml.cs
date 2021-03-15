@@ -203,7 +203,7 @@ namespace FaceRec
         // Загружает изображение и вызывает метод DetectWithStreamAsync.
         private async Task<IList<DetectedFace>> UploadAndDetectFaces(string imageFilePath)
         {
-            // The list of Face attributes to return.
+            // Список атрибутов лица, которые будут возвращены в statusBar.
             IList<FaceAttributeType?> faceAttributes =
                 new FaceAttributeType?[]
                 {
