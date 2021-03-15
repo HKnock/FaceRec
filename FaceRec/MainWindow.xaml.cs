@@ -13,6 +13,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Data.SqlClient;
+using System.Data;
 
 using Microsoft.Azure.CognitiveServices.Vision.Face;
 using Microsoft.Azure.CognitiveServices.Vision.Face.Models;
@@ -31,8 +33,13 @@ namespace FaceRec
     /// </summary>
     public partial class MainWindow : Window
     {
+        // Экземпляр захвата.
         private VideoCapture capture;
-        private string savePath = @"C:\Users\MooN\source\repos\FaceRec\FaceRec\image.jpg";
+        // Пути по которым будет локально сохраняться картинка (Мои Документы/img).
+        private static string savePath = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\img\image.jpg";
+        private static string directoryCreate = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + @"\img";
+        private DirectoryInfo directory = new DirectoryInfo(directoryCreate);
+
         public MainWindow()
         {
             InitializeComponent();
@@ -67,7 +74,7 @@ namespace FaceRec
         // Скейлинг фото относительно размера
         private double resizeFactor;
         // Надпись по умолчанию для статус бара
-        private const string defaultStatusBarText = "Place the mouse pointer over a face to see the face description.";
+        private const string defaultStatusBarText = "Поместите мышь на прямоугольник чтобы увидеть описание.";
 
         // Отображает изображение и вызывает метод UploadAndDetectFaces.
         private async void CaptureButton_Click(object sender, RoutedEventArgs e)
@@ -89,8 +96,19 @@ namespace FaceRec
             {
                 try
                 {
-                    Image<Bgr, double> capturedImage = capture.QueryFrame().ToImage<Bgr, double>();
-                    capturedImage.Save(@"C:\Users\MooN\source\repos\FaceRec\FaceRec\image.jpg");
+                    // Если директория не существует, то создаём и добавляем картинку.
+                    if (!directory.Exists)
+                    {
+                        Directory.CreateDirectory(directoryCreate);
+                        Image<Bgr, double> capturedImage = capture.QueryFrame().ToImage<Bgr, double>();
+                        capturedImage.Save(savePath);
+                    }
+                    // Если уже существует просто добовляем фото.
+                    else
+                    {
+                        Image<Bgr, double> capturedImage = capture.QueryFrame().ToImage<Bgr, double>();
+                        capturedImage.Save(savePath);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -102,16 +120,16 @@ namespace FaceRec
 
             bitmapSource.BeginInit();
             bitmapSource.CacheOption = BitmapCacheOption.None;
-            bitmapSource.UriSource = new Uri(@"C:\Users\MooN\source\repos\FaceRec\FaceRec\image.jpg");
+            bitmapSource.UriSource = new Uri(savePath, UriKind.Absolute);
             bitmapSource.EndInit();
 
             FacePhoto.Source = bitmapSource;
 
             // Обнаружение лиц на полученном изображении.
-            Title = "Detecting...";
+            Title = "Обнаружение...";
             faceList = await UploadAndDetectFaces(savePath);
             Title = String.Format(
-                "Detection Finished. {0} face(s) detected", faceList.Count);
+                "Определение завершено. Обнаружено: {0} лица(о)", faceList.Count);
 
             if (faceList.Count > 0)
             {
